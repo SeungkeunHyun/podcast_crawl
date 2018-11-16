@@ -1,20 +1,42 @@
 import scrapy
 from elasticsearch import Elasticsearch
+import math
+import time
+
+""" ('174141', "wvFtC2cBD-yCrH-UjUCw"), """
 
 
 class PodtySpider(scrapy.Spider):
     name = 'podty'
-    casts = [('174141', "wPFtC2cBD-yCrH-UjUCw"),
-             ('177643', 'wvFtC2cBD-yCrH-UjUCw')]
+    casts = [('177643', 'wPFtC2cBD-yCrH-UjUCw')]
     es = Elasticsearch(["localhost:9200"])
+    pages = 10
+    hold = True
 
     def start_requests(self):
+        i = 0
         for k, v in self.casts:
-            yield scrapy.Request(url='https://www.podty.me/cast/' + k, callback=self.parse)
+            while i < self.pages:
+                self.log("Total pages " + str(self.pages) +
+                         " (current page: " + str(i+1) + ")")
+                purl = 'https://www.podty.me/cast/' + k + \
+                    "/episodes?page=" + str(i+1) + "&dir=desc"
+                yield scrapy.Request(url=purl, callback=self.parse)
+                i += 1
+                if self.hold:
+                    time.sleep(5)
 
     def parse(self, response):
-        esKey = dict(self.casts)[response.url.split('/')[-1]]
-        episodes = list()
+        urlParts = response.url.split('/')
+        esKey = dict(self.casts)[urlParts[4]]
+        self.log("current parent id " + esKey)
+        if self.pages == 10:
+            epCount = int(response.xpath(
+                '//*[@id="container"]/div/nav/ul/li[1]/a/span/text()').extract_first())
+            self.pages = math.ceil(float(epCount)/15)
+            self.hold = False
+
+        self.log("total page is " + str(self.pages) + ": " + response.url)
         epList = response.css("ul.episodeList")[0]
         for episode in epList.css('li'):
             item = {}
@@ -30,12 +52,10 @@ class PodtySpider(scrapy.Spider):
                 './@data-play-uri').extract_first()
             item['duration'] = episode.xpath(
                 './div/time[@class="playTime"]/text()').extract_first().strip()
-            item['parentId'] = esKey
-            episodes.append(item)
-            # self.postToES(item)
+            self.postToES(item, esKey)
 
-    def postToES(self, episode):
+    def postToES(self, episode, parentId):
         self.log(episode)
-        res = self.es.index(index='cast_episodes',
+        res = self.es.index(index='cast_episodes', parent=parentId,
                             doc_type='_doc', body=episode)
         self.log(res)

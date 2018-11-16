@@ -16,13 +16,13 @@ NEWSPIDER_MODULE = 'rss_reader.spiders'
 
 LOG_ENABLED = True
 LOG_STDOUT = True
-#LOG_FILE = './scrapy.log'
+LOG_FILE = './scrapy.log'
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
 #USER_AGENT = 'rss_reader (+http://www.yourdomain.com)'
 
 # Obey robots.txt rules
-ROBOTSTXT_OBEY = True
+ROBOTSTXT_OBEY = False
 
 # Configure maximum concurrent requests performed by Scrapy (default: 16)
 #CONCURRENT_REQUESTS = 32
