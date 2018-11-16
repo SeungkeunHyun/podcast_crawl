@@ -2,13 +2,15 @@ import scrapy
 from elasticsearch import Elasticsearch
 import math
 import time
-
+import json
+import os
 """ ('174141', "wvFtC2cBD-yCrH-UjUCw"), """
 
 
 class PodtySpider(scrapy.Spider):
     name = 'podty'
-    casts = [('177643', 'wPFtC2cBD-yCrH-UjUCw')]
+    casts = [('177643', 'wPFtC2cBD-yCrH-UjUCw'),
+             ('174141', 'wvFtC2cBD-yCrH-UjUCw')]
     es = Elasticsearch(["localhost:9200"])
     pages = 10
     hold = True
@@ -19,8 +21,7 @@ class PodtySpider(scrapy.Spider):
             while i < self.pages:
                 self.log("Total pages " + str(self.pages) +
                          " (current page: " + str(i+1) + ")")
-                purl = 'https://www.podty.me/cast/' + k + \
-                    "/episodes?page=" + str(i+1) + "&dir=desc"
+                purl = 'https://www.podty.me/cast/' + k + "/episodes?page=" + str(i+1) + "&dir=desc"
                 yield scrapy.Request(url=purl, callback=self.parse)
                 i += 1
                 if self.hold:
@@ -37,7 +38,10 @@ class PodtySpider(scrapy.Spider):
             self.hold = False
 
         self.log("total page is " + str(self.pages) + ": " + response.url)
-        epList = response.css("ul.episodeList")[0]
+        epList = response.css("ul.episodeList")
+        if len(epList) == 0:
+            self.log(str(response.body))
+            return
         for episode in epList.css('li'):
             item = {}
             item['title'] = episode.xpath(
@@ -56,6 +60,11 @@ class PodtySpider(scrapy.Spider):
 
     def postToES(self, episode, parentId):
         self.log(episode)
-        res = self.es.index(index='cast_episodes', parent=parentId,
-                            doc_type='_doc', body=episode)
-        self.log(res)
+        res = self.es.count(index="cast_episodes", body=json.dumps({"query": {"term": {
+            "mediaURL.keyword": episode['mediaURL']}}}))
+        if dict(res)['count'] == 0:
+            res = self.es.index(index='cast_episodes', parent=parentId,
+                                doc_type='_doc', body=episode)
+            self.log(res)
+        else:
+            self.log('Exists. skip!')

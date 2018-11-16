@@ -30,10 +30,13 @@ class iTUnesSpider(scrapy.Spider):
 
     def postToES(self, episode, parentId):
         self.log(episode)
-        res = self.es.index(index='cast_episodes',
-                            parent=parentId,
-                            doc_type='_doc', body=episode)
-        self.log(res)
+        res = self.es.count(index="cast_episodes", body=json.dumps({"query": {"term": {
+            "mediaURL.keyword": episode['mediaURL']}}}))
+        if dict(res)['count'] == 0:
+            res = self.es.index(index='cast_episodes',
+                                parent=parentId,
+                                doc_type='_doc', body=episode)
+            self.log(res)
 
     def start_requests(self):
         for url, v in self.esDic:
