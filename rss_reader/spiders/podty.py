@@ -4,44 +4,30 @@ import math
 import time
 import json
 import os
-""" ('174141', "wvFtC2cBD-yCrH-UjUCw"), """
+""" ('177643', '8OPIJWcBgwbcB8rTPFA5'),
+             ('174141', 'O-PJJWcBgwbcB8rTZVFv'), """
 
 
 class PodtySpider(scrapy.Spider):
     name = 'podty'
-    casts = [('177643', 'wPFtC2cBD-yCrH-UjUCw'),
-             ('174141', 'wvFtC2cBD-yCrH-UjUCw')]
+    casts = [('177643', '8OPIJWcBgwbcB8rTPFA5'),
+             ('174141', 'O-PJJWcBgwbcB8rTZVFv'), ('182400', '6OPIJWcBgwbcB8rTPFA2')]
     es = Elasticsearch(["localhost:9200"])
-    pages = 10
-    hold = True
 
     def start_requests(self):
-        i = 0
         for k, v in self.casts:
-            while i < self.pages:
-                self.log("Total pages " + str(self.pages) +
-                         " (current page: " + str(i+1) + ")")
-                purl = 'https://www.podty.me/cast/' + k + "/episodes?page=" + str(i+1) + "&dir=desc"
-                yield scrapy.Request(url=purl, callback=self.parse)
-                i += 1
-                if self.hold:
-                    time.sleep(5)
+            purl = 'https://www.podty.me/cast/' + k + "/episodes?page=1&dir=desc"
+            yield scrapy.Request(url=purl, callback=self.parse)
 
     def parse(self, response):
         urlParts = response.url.split('/')
         esKey = dict(self.casts)[urlParts[4]]
         self.log("current parent id " + esKey)
-        if self.pages == 10:
-            epCount = int(response.xpath(
-                '//*[@id="container"]/div/nav/ul/li[1]/a/span/text()').extract_first())
-            self.pages = math.ceil(float(epCount)/15)
-            self.hold = False
-
-        self.log("total page is " + str(self.pages) + ": " + response.url)
+        epCount = int(response.xpath(
+            '//*[@id="container"]/div/nav/ul/li[1]/a/span/text()').extract_first())
+        cpage = int(response.url.split("?")[1].split("&")[0].split("=")[1])
+        tpage = math.ceil(float(epCount)/15)
         epList = response.css("ul.episodeList")
-        if len(epList) == 0:
-            self.log(str(response.body))
-            return
         for episode in epList.css('li'):
             item = {}
             item['title'] = episode.xpath(
@@ -56,15 +42,19 @@ class PodtySpider(scrapy.Spider):
                 './@data-play-uri').extract_first()
             item['duration'] = episode.xpath(
                 './div/time[@class="playTime"]/text()').extract_first().strip()
+            item['join_field'] = {"name": "episode", "parent": esKey}
             self.postToES(item, esKey)
+
+        if tpage > cpage:
+            yield scrapy.Request(url=response.url.split("?")[0] + "?page=" + str(cpage + 1) + "&dir=desc", callback=self.parse)
 
     def postToES(self, episode, parentId):
         self.log(episode)
-        res = self.es.count(index="cast_episodes", body=json.dumps({"query": {"term": {
+        res = self.es.count(index="casts", body=json.dumps({"query": {"term": {
             "mediaURL.keyword": episode['mediaURL']}}}))
         if dict(res)['count'] == 0:
-            res = self.es.index(index='cast_episodes', parent=parentId,
-                                doc_type='_doc', body=episode)
+            res = self.es.index(index='casts', routing=parentId,
+                                doc_type='doc', body=episode)
             self.log(res)
         else:
             self.log('Exists. skip!')
