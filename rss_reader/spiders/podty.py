@@ -10,18 +10,31 @@ import os
 
 class PodtySpider(scrapy.Spider):
     name = 'podty'
-    casts = [('177643', '8OPIJWcBgwbcB8rTPFA5'),
-             ('174141', 'O-PJJWcBgwbcB8rTZVFv'), ('182400', '6OPIJWcBgwbcB8rTPFA2')]
     es = Elasticsearch(["localhost:9200"])
 
+
+    def getCastsByProvider(self, provider):
+        casts = self.es.search(index='casts', body={"size": 100, "query": {"term": {"provider.keyword": provider}}},  filter_path=['hits.hits._id', 'hits.hits._source.feedURL'])
+        casts = casts['hits']['hits']
+        self.log(casts)
+        for cast in casts:
+            self.log(cast)
+            cast['feedURL'] = cast['_source']['feedURL']
+            cast.pop('_source')
+        self.log(casts)
+        return casts
+
     def start_requests(self):
-        for k, v in self.casts:
-            purl = 'https://www.podty.me/cast/' + k + "/episodes?page=1&dir=desc"
+        self.casts = self.getCastsByProvider('podty')
+        self.log(self.casts)
+        for cast in self.casts:
+            self.log(cast)
+            purl = cast['feedURL'] + "/episodes?page=1&dir=desc"
             yield scrapy.Request(url=purl, callback=self.parse)
 
     def parse(self, response):
         urlParts = response.url.split('/')
-        esKey = dict(self.casts)[urlParts[4]]
+        esKey = urlParts[4]
         self.log("current parent id " + esKey)
         epCount = int(response.xpath(
             '//*[@id="container"]/div/nav/ul/li[1]/a/span/text()').extract_first())
@@ -42,7 +55,7 @@ class PodtySpider(scrapy.Spider):
                 './@data-play-uri').extract_first()
             item['duration'] = episode.xpath(
                 './div/time[@class="playTime"]/text()').extract_first().strip()
-            item['join_field'] = {"name": "episode", "parent": esKey}
+            item['cast_episode'] = {"name": "episode", "parent": esKey}
             self.postToES(item, esKey)
 
         if tpage > cpage:
@@ -50,11 +63,11 @@ class PodtySpider(scrapy.Spider):
 
     def postToES(self, episode, parentId):
         self.log(episode)
-        res = self.es.count(index="casts", body=json.dumps({"query": {"term": {
-            "mediaURL.keyword": episode['mediaURL']}}}))
+        res = self.es.count(index="casts", body={"query": {"term": {
+            "mediaURL.keyword": episode['mediaURL']}}})
         if dict(res)['count'] == 0:
             res = self.es.index(index='casts', routing=parentId,
-                                doc_type='doc', body=episode)
+                                doc_type='_doc', body=episode)
             self.log(res)
         else:
             self.log('Exists. skip!')
