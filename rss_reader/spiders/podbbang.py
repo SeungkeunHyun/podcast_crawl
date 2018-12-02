@@ -3,6 +3,7 @@ import re
 import json
 import datetime
 from elasticsearch import Elasticsearch
+import ast
 
 """ ('7339', 'XuPJJWcBgwbcB8rTZVFz'),
 ('10135', '8ePIJWcBgwbcB8rTPFA5'), """
@@ -14,7 +15,8 @@ class PodbbangSpider(scrapy.Spider):
     casts = None
 
     def getCastsByProvider(self, provider):
-        casts = self.es.search(index='casts', body={"size": 100, "query": {"term": {"provider.keyword": provider}}},  filter_path=['hits.hits._id', 'hits.hits._source.feedURL'])
+        casts = self.es.search(index='casts', body={"size": 100, "query": {"term": {
+                               "provider.keyword": provider}}},  filter_path=['hits.hits._id', 'hits.hits._source.feedURL'])
         casts = casts['hits']['hits']
         for cast in casts:
             cast['feedURL'] = cast['_source']['feedURL']
@@ -31,17 +33,17 @@ class PodbbangSpider(scrapy.Spider):
 
     def parse(self, response):
         esKey = response.url.split("/")[4].split("?")[0]
-        jsonItems = re.findall('episode\[\d+\] = ({[^}]+})', response.body.decode('utf-8'))
+        jsonItems = re.findall(
+            'episode\[\d+\] = ({[^}]+})', response.body.decode('utf-8'))
         for jsonItem in jsonItems:
             episode = {}
             jsonItem += ""
-            jsonItem = jsonItem.strip().replace('"', '`').replace(
-                "'", '"').replace('"ischsell":ischsell', '"dummy": 1')
-            self.log(jsonItem)
-            datItem = json.loads(jsonItem)
+            jsonItem = jsonItem.strip().replace("'ischsell':ischsell", '"dummy": 1')
+            # self.log(jsonItem)
+            datItem = ast.literal_eval(jsonItem)
             episode['title'] = datItem['title']
             episode['cast_episode'] = {"name": "episode",
-                                     "parent": esKey}
+                                       "parent": esKey}
             if datItem['pubdate'] == 'Today':
                 episode['pubdate'] = datetime.today().strftime('%Y/%m/%d')
             else:

@@ -12,9 +12,9 @@ class PodtySpider(scrapy.Spider):
     name = 'podty'
     es = Elasticsearch(["localhost:9200"])
 
-
     def getCastsByProvider(self, provider):
-        casts = self.es.search(index='casts', body={"size": 100, "query": {"term": {"provider.keyword": provider}}},  filter_path=['hits.hits._id', 'hits.hits._source.feedURL'])
+        casts = self.es.search(index='casts', body={"from": 0, "size": 100, "query": {"term": {
+                               "provider.keyword": provider}}},  filter_path=['hits.hits._id', 'hits.hits._source.feedURL'])
         casts = casts['hits']['hits']
         self.log(casts)
         for cast in casts:
@@ -62,12 +62,13 @@ class PodtySpider(scrapy.Spider):
             yield scrapy.Request(url=response.url.split("?")[0] + "?page=" + str(cpage + 1) + "&dir=desc", callback=self.parse)
 
     def postToES(self, episode, parentId):
-        self.log(episode)
+        if parentId == '177643':
+            self.log(episode)
         res = self.es.count(index="casts", body={"query": {"term": {
             "mediaURL.keyword": episode['mediaURL']}}})
         if dict(res)['count'] == 0:
             res = self.es.index(index='casts', routing=parentId,
                                 doc_type='_doc', body=episode)
-            self.log(res)
+            # self.log(res)
         else:
             self.log('Exists. skip!')
