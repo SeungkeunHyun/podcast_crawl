@@ -40,7 +40,7 @@ class PodtySpider(scrapy.Spider):
             '//*[@id="container"]/div/nav/ul/li[1]/a/span/text()').extract_first())
         cpage = int(response.url.split("?")[1].split("&")[0].split("=")[1])
         tpage = math.ceil(float(epCount)/15)
-        epList = response.css("ul.episodeList")
+        epList = response.css("ul.episodeList")[0]
         for episode in epList.css('li'):
             item = {}
             item['title'] = episode.xpath(
