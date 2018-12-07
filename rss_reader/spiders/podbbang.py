@@ -1,7 +1,7 @@
 import scrapy
 import re
 import json
-import datetime
+from datetime import datetime
 from elasticsearch import Elasticsearch
 import ast
 
@@ -33,6 +33,7 @@ class PodbbangSpider(scrapy.Spider):
 
     def parse(self, response):
         esKey = response.url.split("/")[4].split("?")[0]
+        hasMore = True
         jsonItems = re.findall(
             'episode\[\d+\] = ({[^}]+})', response.body.decode('utf-8'))
         for jsonItem in jsonItems:
@@ -52,9 +53,11 @@ class PodbbangSpider(scrapy.Spider):
             episode['mediaURL'] = datItem['down_file']
             episode['duration'] = response.selector.xpath('//li[@epiuid="' + datItem['player_down'].split(
                 '=')[-1] + '"]/dl/dd[@class="dd_time"]/text()').extract_first().strip()
-            self.postToES(episode, esKey)
+            hasMore = self.postToES(episode, esKey)
+            if not hasMore:
+                break
 
-        if len(response.xpath('//img[@alt="다음"]')) > 0:
+        if hasMore and len(response.xpath('//img[@alt="다음"]')) > 0:
             urlParts = response.url.split("=")
             purl = urlParts[0] + "=" + str(int(urlParts[1]) + 1)
             yield scrapy.Request(url=purl, callback=self.parse)
@@ -67,3 +70,6 @@ class PodbbangSpider(scrapy.Spider):
             res = self.es.index(index='casts', routing=parentId,
                                 doc_type='_doc', body=episode)
             self.log(res)
+            return True
+        else:
+            return False

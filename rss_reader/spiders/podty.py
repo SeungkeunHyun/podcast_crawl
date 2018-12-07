@@ -34,6 +34,7 @@ class PodtySpider(scrapy.Spider):
 
     def parse(self, response):
         urlParts = response.url.split('/')
+        hasMore = True
         esKey = urlParts[4]
         self.log("current parent id " + esKey)
         epCount = int(response.xpath(
@@ -56,7 +57,9 @@ class PodtySpider(scrapy.Spider):
             item['duration'] = episode.xpath(
                 './div/time[@class="playTime"]/text()').extract_first().strip()
             item['cast_episode'] = {"name": "episode", "parent": esKey}
-            self.postToES(item, esKey)
+            hasMore = self.postToES(item, esKey)
+            if not hasMore:
+                break
 
         if tpage > cpage:
             yield scrapy.Request(url=response.url.split("?")[0] + "?page=" + str(cpage + 1) + "&dir=desc", callback=self.parse)
@@ -69,6 +72,6 @@ class PodtySpider(scrapy.Spider):
         if dict(res)['count'] == 0:
             res = self.es.index(index='casts', routing=parentId,
                                 doc_type='_doc', body=episode)
-            # self.log(res)
+            return True
         else:
-            self.log('Exists. skip!')
+            return False

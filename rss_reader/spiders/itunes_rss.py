@@ -5,6 +5,7 @@ from dateutil.parser import parse
 import json
 from pprint import pprint
 
+
 class iTUnesSpider(scrapy.Spider):
     name = "itunes"
     es = Elasticsearch(["localhost:9200"])
@@ -12,7 +13,8 @@ class iTUnesSpider(scrapy.Spider):
     casts = None
 
     def getCastsByProvider(self, provider):
-        casts = self.es.search(index='casts', body={"size": 100, "query": {"term": {"provider.keyword": provider}}},  filter_path=['hits.hits._id', 'hits.hits._source.feedURL'])
+        casts = self.es.search(index='casts', body={"size": 100, "query": {"term": {
+                               "provider.keyword": provider}}},  filter_path=['hits.hits._id', 'hits.hits._source.feedURL'])
         casts = casts['hits']['hits']
         for cast in casts:
             cast['feedURL'] = cast['_source']['feedURL']
@@ -29,6 +31,9 @@ class iTUnesSpider(scrapy.Spider):
                                 routing=parentId,
                                 doc_type='_doc', body=episode)
             self.log(res)
+            return True
+        else:
+            return False
 
     def start_requests(self):
         self.casts = self.getCastsByProvider('itunes')
@@ -65,4 +70,5 @@ class iTUnesSpider(scrapy.Spider):
             item['duration'] = episode.xpath(
                 './itunes:duration').xpath('./text()').extract_first()
             item['cast_episode'] = {"name": "episode", "parent": esKey}
-            self.postToES(item, esKey)
+            if not self.postToES(item, esKey):
+                break
