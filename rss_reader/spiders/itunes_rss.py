@@ -43,6 +43,10 @@ class iTUnesSpider(scrapy.Spider):
             self.log(cast['feedURL'])
             yield scrapy.Request(url=cast['feedURL'], callback=self.parse)
 
+    def getkey(self, ep):
+        # print(ep.xpath('./pubDate/text()').extract_first())
+        return parse(ep.xpath('./pubDate/text()').extract_first())
+
     def parse(self, response):
         esKey = None
         for cast in self.casts:
@@ -56,7 +60,9 @@ class iTUnesSpider(scrapy.Spider):
             response.selector.register_namespace(
                 ns_def[0], ns_def[1].replace('"', ''))
             self.log(ns_def[0] + '=' + ns_def[1].replace('"', ''))
-        for episode in response.xpath('/rss/channel/item'):
+        episodes = response.xpath('/rss/channel/item')
+        episodes = sorted(episodes, key=self.getkey, reverse=True)
+        for episode in episodes:
             item = {}
             item['title'] = episode.xpath('./title/text()').extract_first()
             item['pubDate'] = parse(episode.xpath(
