@@ -61,7 +61,7 @@ class PodtySpider(scrapy.Spider):
             if not hasMore:
                 break
 
-        if tpage > cpage:
+        if hasMore and len(response.xpath("//a[@class='btnNext']")) > 0:
             yield scrapy.Request(url=response.url.split("?")[0] + "?page=" + str(cpage + 1) + "&dir=desc", callback=self.parse)
 
     def postToES(self, episode, parentId):
