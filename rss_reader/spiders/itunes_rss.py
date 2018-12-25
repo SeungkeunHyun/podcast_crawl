@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 import scrapy
 from elasticsearch import Elasticsearch
-from dateutil.parser import parse
+from dateparser import parse
 import json
 from pprint import pprint
 
@@ -9,18 +9,16 @@ from pprint import pprint
 class iTUnesSpider(scrapy.Spider):
     name = "itunes"
     es = Elasticsearch(["localhost:9200"])
-    esDic = es.search
-    casts = None
+    casts = {}
 
     def getCastsByProvider(self, provider):
-        casts = self.es.search(index='casts', body={"size": 100, "query": {"term": {
-                               "provider.keyword": provider}}},  filter_path=['hits.hits._id', 'hits.hits._source.feedURL'])
-        casts = casts['hits']['hits']
-        for cast in casts:
-            cast['feedURL'] = cast['_source']['feedURL']
-            cast.pop('_source')
-        self.log(casts)
-        return casts
+        results = self.es.search(index='casts', body={"size": 100, "query": {"term": {
+            "provider.keyword": provider}}})
+        results = results['hits']['hits']
+        for result in results:
+            cast = result['_source']
+            self.casts[cast['feedURL']] = cast
+        self.log(self.casts)
 
     def postToES(self, episode, parentId):
         self.log(episode)
@@ -36,23 +34,19 @@ class iTUnesSpider(scrapy.Spider):
             return False
 
     def start_requests(self):
-        self.casts = self.getCastsByProvider('itunes')
+        self.getCastsByProvider('itunes')
         self.log("print casts")
-        for cast in self.casts:
+        for feedURL, cast in self.casts.items():
             self.log(cast)
-            self.log(cast['feedURL'])
-            yield scrapy.Request(url=cast['feedURL'], callback=self.parse)
+            yield scrapy.Request(url=feedURL, callback=self.parse)
 
     def getkey(self, ep):
         # print(ep.xpath('./pubDate/text()').extract_first())
         return parse(ep.xpath('./pubDate/text()').extract_first())
 
     def parse(self, response):
-        esKey = None
-        for cast in self.casts:
-            if cast['feedURL'] == response.url:
-                esKey = cast['_id']
-                break
+        cast = self.casts[response.url]
+        esKey = cast['podcastID']
         # self.log(response.body.decode('utf-8'))
         namespaces = response.selector.re(r'xmlns\:(\S+)')
         for ns in namespaces:
@@ -60,6 +54,15 @@ class iTUnesSpider(scrapy.Spider):
             response.selector.register_namespace(
                 ns_def[0], ns_def[1].replace('"', ''))
             self.log(ns_def[0] + '=' + ns_def[1].replace('"', ''))
+        imgURL = response.xpath(
+            '/rss/channel/itunes:image/@href').extract_first()
+        if cast['imageURL'] != imgURL:
+            cast['imageURL'] = imgURL
+            cast['name'] = response.xpath(
+                '/rss/channel/title/text()').extract_first()
+            self.log('found to be updated %s' % imgURL)
+            self.es.index(index='casts', doc_type='_doc',
+                          id=cast['podcastID'], body=cast)
         episodes = response.xpath('/rss/channel/item')
         episodes = sorted(episodes, key=self.getkey, reverse=True)
         for episode in episodes:

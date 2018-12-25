@@ -65,7 +65,7 @@ class PodtySpider(scrapy.Spider):
             yield scrapy.Request(url=response.url.split("?")[0] + "?page=" + str(cpage + 1) + "&dir=desc", callback=self.parse)
 
     def postToES(self, episode, parentId):
-        if parentId == '177643':
+        if parentId == '174141':
             self.log(episode)
         res = self.es.count(index="casts", body={"query": {"term": {
             "mediaURL.keyword": episode['mediaURL']}}})

@@ -12,27 +12,37 @@ import ast
 class PodbbangSpider(scrapy.Spider):
     name = "podbbang"
     es = Elasticsearch(["localhost:9200"])
-    casts = None
+    casts = {}
 
     def getCastsByProvider(self, provider):
-        casts = self.es.search(index='casts', body={"size": 100, "query": {"term": {
-                               "provider.keyword": provider}}},  filter_path=['hits.hits._id', 'hits.hits._source.feedURL'])
-        casts = casts['hits']['hits']
-        for cast in casts:
-            cast['feedURL'] = cast['_source']['feedURL']
-            cast.pop('_source')
-        self.log(casts)
-        return casts
+        results = self.es.search(index='casts', body={"size": 100, "query": {"term": {
+            "provider.keyword": provider}}})
+        results = results['hits']['hits']
+        for result in results:
+            cast = result['_source']
+            self.casts[cast['feedURL']] = cast
+        self.log(self.casts)
 
     def start_requests(self):
-        self.casts = self.getCastsByProvider('podbbang')
-        for cast in self.casts:
-            purl = cast['feedURL'] + "?page=1"
+        self.getCastsByProvider('podbbang')
+        for feedURL, cast in self.casts.items():
+            purl = feedURL + "?page=1"
             self.log(purl)
             yield scrapy.Request(url=purl, callback=self.parse)
 
     def parse(self, response):
         esKey = response.url.split("/")[4].split("?")[0]
+        feedURL = response.url.split('?')[0]
+        cast = self.casts[feedURL]
+        imgURL = response.xpath(
+            '//*[@id="podcast_thumb"]/img/@src').extract_first()
+        imgURL = imgURL.split('?')[0]
+        if cast['imageURL'] != imgURL:
+            self.log(imgURL)
+            cast['imageURL'] = imgURL
+            cast['name'] = response.xpath(
+                '//*[@id="all_title"]/dt/div/p/text()').extract_first()
+            self.es.index(index='casts', doc_type='_doc', id=esKey, body=cast)
         hasMore = True
         jsonItems = re.findall(
             'episode\[\d+\] = ({[^}]+})', response.body.decode('utf-8'))
