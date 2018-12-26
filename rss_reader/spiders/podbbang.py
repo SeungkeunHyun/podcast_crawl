@@ -37,7 +37,7 @@ class PodbbangSpider(scrapy.Spider):
         imgURL = response.xpath(
             '//*[@id="podcast_thumb"]/img/@src').extract_first()
         imgURL = imgURL.split('?')[0]
-        if cast['imageURL'] != imgURL:
+        if 'imageURL' not in cast or cast['imageURL'] != imgURL:
             self.log(imgURL)
             cast['imageURL'] = imgURL
             cast['name'] = response.xpath(

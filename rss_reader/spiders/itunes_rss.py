@@ -56,7 +56,7 @@ class iTUnesSpider(scrapy.Spider):
             self.log(ns_def[0] + '=' + ns_def[1].replace('"', ''))
         imgURL = response.xpath(
             '/rss/channel/itunes:image/@href').extract_first()
-        if cast['imageURL'] != imgURL:
+        if 'imageURL' not in cast or cast['imageURL'] != imgURL:
             cast['imageURL'] = imgURL
             cast['name'] = response.xpath(
                 '/rss/channel/title/text()').extract_first()

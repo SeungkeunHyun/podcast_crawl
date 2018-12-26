@@ -11,23 +11,19 @@ import os
 class PodtySpider(scrapy.Spider):
     name = 'podty'
     es = Elasticsearch(["localhost:9200"])
+    casts = {}
 
     def getCastsByProvider(self, provider):
-        casts = self.es.search(index='casts', body={"from": 0, "size": 100, "query": {"term": {
-                               "provider.keyword": provider}}},  filter_path=['hits.hits._id', 'hits.hits._source.feedURL'])
-        casts = casts['hits']['hits']
-        self.log(casts)
-        for cast in casts:
-            self.log(cast)
-            cast['feedURL'] = cast['_source']['feedURL']
-            cast.pop('_source')
-        self.log(casts)
-        return casts
+        results = self.es.search(index='casts', body={"from": 0, "size": 100, "query": {"term": {
+            "provider.keyword": provider}}})
+        results = results['hits']['hits']
+        for result in results:
+            self.casts[result['_id']] = result['_source']
 
     def start_requests(self):
-        self.casts = self.getCastsByProvider('podty')
+        self.getCastsByProvider('podty')
         self.log(self.casts)
-        for cast in self.casts:
+        for esKey, cast in self.casts.items():
             self.log(cast)
             purl = cast['feedURL'] + "/episodes?page=1&dir=desc"
             yield scrapy.Request(url=purl, callback=self.parse)
@@ -36,6 +32,17 @@ class PodtySpider(scrapy.Spider):
         urlParts = response.url.split('/')
         hasMore = True
         esKey = urlParts[4]
+        cast = self.casts[esKey]
+        self.log(cast)
+        imgURL = response.xpath(
+            '//*[@id="container"]/section/div[1]/img/@src').extract_first()
+        self.log(imgURL)
+        if 'imageURL' not in cast or cast['imageURL'] != imgURL:
+            self.log('found albumart to update: ' + imgURL)
+            cast['imageURL'] = imgURL
+            cast['name'] = response.xpath(
+                '//*[@id="container"]/section/div[2]/div[1]/p/text()').extract_first()
+            self.es.index(index='casts', id=esKey, doc_type='_doc', body=cast)
         self.log("current parent id " + esKey)
         epCount = int(response.xpath(
             '//*[@id="container"]/div/nav/ul/li[1]/a/span/text()').extract_first())
