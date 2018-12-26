@@ -3,6 +3,7 @@ import scrapy
 from elasticsearch import Elasticsearch
 from dateparser import parse
 import json
+import re
 from pprint import pprint
 
 
@@ -42,7 +43,10 @@ class iTUnesSpider(scrapy.Spider):
 
     def getkey(self, ep):
         # print(ep.xpath('./pubDate/text()').extract_first())
-        return parse(ep.xpath('./pubDate/text()').extract_first())
+        dt = ep.xpath('./pubDate/text()').extract_first()
+        dt = dt.replace(' :', ':')
+        dt = dt.split(' +')[0]
+        return parse(dt)
 
     def parse(self, response):
         cast = self.casts[response.url]
@@ -68,8 +72,8 @@ class iTUnesSpider(scrapy.Spider):
         for episode in episodes:
             item = {}
             item['title'] = episode.xpath('./title/text()').extract_first()
-            item['pubDate'] = parse(episode.xpath(
-                './pubDate/text()').extract_first()).strftime('%Y/%m/%d %H:%M:%S')
+            item['pubDate'] = self.getkey(
+                episode).strftime('%Y/%m/%d %H:%M:%S')
             item['subtitle'] = episode.xpath(
                 './itunes:subtitle').xpath('./text()').extract_first()
             item['summary'] = episode.xpath(
