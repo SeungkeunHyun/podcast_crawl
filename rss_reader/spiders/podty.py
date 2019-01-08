@@ -37,8 +37,9 @@ class PodtySpider(scrapy.Spider):
         imgURL = response.xpath(
             '//*[@id="container"]/section/div[1]/img/@src').extract_first()
         self.log(imgURL)
-        if 'imageURL' not in cast or cast['imageURL'] != imgURL:
-            self.log('found albumart to update: ' + imgURL)
+        if 'imageURL' not in cast or cast['imageURL'] != imgURL or 'author' not in cast:
+            cast['author'] = response.xpath(
+                '//*[@id="container"]/section/div/ul[@class="subInfo"]/li[1]/strong/text()').extract_first()
             cast['imageURL'] = imgURL
             cast['name'] = response.xpath(
                 '//*[@id="container"]/section/div[2]/div[1]/p/text()').extract_first()

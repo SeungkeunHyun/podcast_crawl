@@ -38,7 +38,7 @@ class PodbbangSpider(scrapy.Spider):
             '//*[@id="podcast_thumb"]/img/@src').extract_first()
         imgURL = imgURL.split('?')[0]
         if 'imageURL' not in cast or cast['imageURL'] != imgURL:
-            self.log(imgURL)
+            # cast['author'] =
             cast['imageURL'] = imgURL
             cast['name'] = response.xpath(
                 '//*[@id="all_title"]/dt/div/p/text()').extract_first()
@@ -52,6 +52,8 @@ class PodbbangSpider(scrapy.Spider):
             jsonItem = jsonItem.strip().replace("'ischsell':ischsell", '"dummy": 1')
             # self.log(jsonItem)
             datItem = ast.literal_eval(jsonItem)
+            if datItem['down_file'] == 'http://cdn.podbbang.com/guide/paidcontent.mp3':
+                continue
             episode['title'] = datItem['title']
             episode['cast_episode'] = {"name": "episode",
                                        "parent": esKey}

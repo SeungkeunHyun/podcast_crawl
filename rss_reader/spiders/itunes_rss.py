@@ -60,7 +60,9 @@ class iTUnesSpider(scrapy.Spider):
             self.log(ns_def[0] + '=' + ns_def[1].replace('"', ''))
         imgURL = response.xpath(
             '/rss/channel/itunes:image/@href').extract_first()
-        if 'imageURL' not in cast or cast['imageURL'] != imgURL:
+        if 'imageURL' not in cast or cast['imageURL'] != imgURL or 'author' not in cast or len(cast['author']) > 50:
+            cast['author'] = response.xpath(
+                '/rss/channel/itunes:author/text()').extract_first()
             cast['imageURL'] = imgURL
             cast['name'] = response.xpath(
                 '/rss/channel/title/text()').extract_first()
@@ -83,5 +85,6 @@ class iTUnesSpider(scrapy.Spider):
             item['duration'] = episode.xpath(
                 './itunes:duration').xpath('./text()').extract_first()
             item['cast_episode'] = {"name": "episode", "parent": esKey}
+            #self.postToES(item, esKey)
             if not self.postToES(item, esKey):
                 break
