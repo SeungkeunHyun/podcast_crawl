@@ -1,16 +1,19 @@
 # -*- coding: utf-8 -*-
 import scrapy
 from elasticsearch import Elasticsearch
-from dateparser import parse
+import dateparser
+import datetime
 import json
 import re
 from pprint import pprint
+import pytz
 
 
 class iTUnesSpider(scrapy.Spider):
     name = "itunes"
     es = Elasticsearch(["localhost:9200"])
     casts = {}
+    seoul = pytz.timezone('Asia/Seoul')
 
     def getCastsByProvider(self, provider):
         results = self.es.search(index='casts', body={"size": 100, "query": {"term": {
@@ -46,10 +49,25 @@ class iTUnesSpider(scrapy.Spider):
         dt = ep.xpath('./pubDate/text()').extract_first()
         dt = dt.replace(' :', ':')
         dt = dt.split(' +')[0]
-        return parse(dt)
+        dt = dt.split(' -')[0]
+        try:
+            pubdt = dateparser.parse(dt)
+            if pubdt != None:
+                return pubdt.replace(tzinfo=pytz.utc).astimezone(
+                    pytz.timezone('Asia/Seoul'))
+            else:
+                self.log('{} is not valid date to be parsed'.format(dt))
+                return None
+        except:
+            self.log('error in parsing date {}'.format(dt))
+            return None
 
     def parse(self, response):
-        cast = self.casts[response.url]
+        try:
+            cast = self.casts[response.url]
+        except:
+            self.log('url got changed: {}'.format(response.url))
+            cast = None
         esKey = cast['podcastID']
         # self.log(response.body.decode('utf-8'))
         namespaces = response.selector.re(r'xmlns\:(\S+)')
