@@ -1,0 +1,22 @@
+{
+    "size": 0,
+    "query": {
+        "term": {
+            "cast_episode.keyword": {
+                "value": "177643"
+            }
+        }
+    },
+    "aggs": {
+        "lastPubdate": {
+            "max": {
+                "field": "pubDate"
+            }
+        },
+        "ep_count": {
+            "value_count": {
+                "field": "mediaURL.keyword"
+            }
+        }
+    }
+}

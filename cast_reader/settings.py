@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Scrapy settings for rss_reader project
+# Scrapy settings for cast_reader project
 #
 # For simplicity, this file contains only settings considered important or
 # commonly used. You can find more settings consulting the documentation:
@@ -9,17 +9,17 @@
 #     https://doc.scrapy.org/en/latest/topics/downloader-middleware.html
 #     https://doc.scrapy.org/en/latest/topics/spider-middleware.html
 
-BOT_NAME = 'rss_reader'
+BOT_NAME = 'cast_reader'
 
-SPIDER_MODULES = ['rss_reader.spiders']
-NEWSPIDER_MODULE = 'rss_reader.spiders'
+SPIDER_MODULES = ['cast_reader.spiders']
+NEWSPIDER_MODULE = 'cast_reader.spiders'
 
 LOG_ENABLED = True
 LOG_STDOUT = True
 #LOG_FILE = './scrapy.log'
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
-#USER_AGENT = 'rss_reader (+http://www.yourdomain.com)'
+#USER_AGENT = 'cast_reader (+http://www.yourdomain.com)'
 
 # Obey robots.txt rules
 ROBOTSTXT_OBEY = False
@@ -50,13 +50,13 @@ ROBOTSTXT_OBEY = False
 # Enable or disable spider middlewares
 # See https://doc.scrapy.org/en/latest/topics/spider-middleware.html
 # SPIDER_MIDDLEWARES = {
-#    'rss_reader.middlewares.RssReaderSpiderMiddleware': 543,
+#    'cast_reader.middlewares.RssReaderSpiderMiddleware': 543,
 # }
 
 # Enable or disable downloader middlewares
 # See https://doc.scrapy.org/en/latest/topics/downloader-middleware.html
 # DOWNLOADER_MIDDLEWARES = {
-#    'rss_reader.middlewares.RssReaderDownloaderMiddleware': 543,
+#    'cast_reader.middlewares.RssReaderDownloaderMiddleware': 543,
 # }
 
 # Enable or disable extensions
@@ -68,7 +68,7 @@ ROBOTSTXT_OBEY = False
 # Configure item pipelines
 # See https://doc.scrapy.org/en/latest/topics/item-pipeline.html
 # ITEM_PIPELINES = {
-#    'rss_reader.pipelines.RssReaderPipeline': 300,
+#    'cast_reader.pipelines.RssReaderPipeline': 300,
 # }
 
 # Enable and configure the AutoThrottle extension (disabled by default)
