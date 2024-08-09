@@ -1,0 +1,6 @@
+dateparser==1.0.0
+elasticsearch==7.13.3
+lxml==4.6.3
+pytz==2019.3
+requests==2.22.0
+Scrapy==2.5.0
